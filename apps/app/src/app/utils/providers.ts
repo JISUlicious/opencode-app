@@ -3,7 +3,7 @@ import type { Provider as ConfigProvider, ProviderListResponse } from "@opencode
 type ProviderListItem = ProviderListResponse["all"][number];
 type ProviderListModel = ProviderListItem["models"][string];
 
-const PINNED_PROVIDER_ORDER = ["opencode", "openai", "anthropic"] as const;
+const PINNED_PROVIDER_ORDER = ["openai", "opencode", "custom"] as const;
 
 export const providerPriorityRank = (id: string) => {
   const normalized = id.trim().toLowerCase();

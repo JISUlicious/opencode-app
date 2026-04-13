@@ -47,6 +47,7 @@ import {
   RefreshCcw,
   Server,
   Smartphone,
+  Wifi,
   Zap,
 } from "lucide-solid";
 import type {
@@ -410,6 +411,30 @@ export default function SettingsView(props: SettingsViewProps) {
   const [openworkRestartError, setOpenworkRestartError] = createSignal<
     string | null
   >(null);
+
+  // Local model detection
+  const [localProviders, setLocalProviders] = createSignal<
+    import("../utils/local-providers").LocalProviderInfo[]
+  >([]);
+  const [localModelScanning, setLocalModelScanning] = createSignal(false);
+  const [localModelError, setLocalModelError] = createSignal<string | null>(null);
+  const handleDetectLocalModels = async () => {
+    setLocalModelScanning(true);
+    setLocalModelError(null);
+    try {
+      const { detectLocalProviders } = await import("../utils/local-providers");
+      const detected = await detectLocalProviders();
+      setLocalProviders(detected);
+      if (detected.length === 0) {
+        setLocalModelError("No local model servers detected. Make sure Ollama, LM Studio, or vLLM is running.");
+      }
+    } catch (err) {
+      setLocalModelError(err instanceof Error ? err.message : "Detection failed");
+    } finally {
+      setLocalModelScanning(false);
+    }
+  };
+
   const providerAvailableCount = createMemo(
     () => (props.providers ?? []).length,
   );
@@ -1584,6 +1609,70 @@ export default function SettingsView(props: SettingsViewProps) {
               <div class="text-[11px] text-gray-9">
                 {t("settings.api_keys_info")}
               </div>
+            </div>
+
+            <div class={`${settingsPanelClass} space-y-4`}>
+              <div class="flex items-center gap-2">
+                <Wifi size={16} class="text-gray-11" />
+                <div class="text-sm font-medium text-gray-12">Local Models</div>
+              </div>
+              <div class="text-xs text-gray-10">
+                Auto-detect locally running OpenAI-compatible model servers (Ollama, LM Studio, vLLM).
+              </div>
+              <div class="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={handleDetectLocalModels}
+                  disabled={localModelScanning()}
+                >
+                  {localModelScanning() ? "Scanning..." : "Detect Local Models"}
+                </Button>
+                <Show when={localProviders().length > 0}>
+                  <span class="text-xs text-green-11">
+                    {localProviders().length} server{localProviders().length > 1 ? "s" : ""} detected
+                  </span>
+                </Show>
+              </div>
+              <Show when={localProviders().length > 0}>
+                <div class="space-y-2">
+                  <For each={localProviders()}>
+                    {(provider) => (
+                      <div class={`${settingsPanelSoftClass} px-3 py-2`}>
+                        <div class="flex items-center justify-between gap-3">
+                          <div class="min-w-0">
+                            <div class="text-sm font-medium text-gray-12">{provider.name}</div>
+                            <div class="text-[11px] text-gray-8 font-mono truncate">{provider.baseUrl}</div>
+                          </div>
+                          <div class="text-xs text-gray-10 shrink-0">
+                            {provider.models.length} model{provider.models.length !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                        <Show when={provider.models.length > 0}>
+                          <div class="mt-2 flex flex-wrap gap-1">
+                            <For each={provider.models.slice(0, 8)}>
+                              {(model) => (
+                                <span class="inline-block rounded-md bg-gray-3 px-2 py-0.5 text-[11px] text-gray-11 font-mono">
+                                  {model}
+                                </span>
+                              )}
+                            </For>
+                            <Show when={provider.models.length > 8}>
+                              <span class="inline-block rounded-md bg-gray-3 px-2 py-0.5 text-[11px] text-gray-10">
+                                +{provider.models.length - 8} more
+                              </span>
+                            </Show>
+                          </div>
+                        </Show>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              </Show>
+              <Show when={localModelError()}>
+                <div class="rounded-xl border border-amber-7/30 bg-amber-2/45 px-3 py-2 text-xs text-amber-11">
+                  {localModelError()}
+                </div>
+              </Show>
             </div>
 
             <div class={`${settingsPanelClass} space-y-4`}>
