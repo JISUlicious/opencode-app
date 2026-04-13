@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WorkspaceAgent Dev",
+  "identifier": "com.workspaceagent.app.dev",
+  "bundle": {
+    "icon": [
+      "icons/dev/32x32.png",
+      "icons/dev/128x128.png",
+      "icons/dev/128x128@2x.png",
+      "icons/icon-dev.icns"
+    ],
+    "macOS": {
+      "bundleName": "WorkspaceAgent - Dev",
+      "infoPlist": "./Info.dev.plist"
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "WorkspaceAgent - Dev",
+        "width": 1180,
+        "height": 820,
+        "resizable": true
+      }
+    ]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "workspaceagent-dev"
+        ]
+      }
+    }
+  }
+}
