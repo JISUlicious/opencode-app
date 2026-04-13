@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Streamdown } from "streamdown";
+import { RichTable, parseTableNode } from "./rich-table.react";
 
 function MarkdownCodeBlock(props: { className?: string; children: React.ReactNode }) {
   const text = Array.isArray(props.children) ? props.children.join("") : String(props.children ?? "");
@@ -65,7 +66,11 @@ const markdownComponents: Components = {
   blockquote({ children }) {
     return <blockquote className="my-4 border-l-4 border-dls-border pl-4 italic text-gray-11">{children}</blockquote>;
   },
-  table({ children }) {
+  table({ node, children }) {
+    const parsed = parseTableNode(node as unknown as Parameters<typeof parseTableNode>[0]);
+    if (parsed && parsed.headers.length > 0) {
+      return <RichTable headers={parsed.headers} rows={parsed.rows} />;
+    }
     return <table className="my-4 w-full border-collapse">{children}</table>;
   },
   th({ children }) {
