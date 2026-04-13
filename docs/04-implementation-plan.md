@@ -1,345 +1,433 @@
-# Implementation Plan — OpenCode Desktop App
+# WorkspaceAgent — Implementation Plan
 
-> A phased plan covering both the recommended approach (Fork OpenWork) and the alternative (Rebuild from OpenCode)
-
----
-
-## Plan A: Fork OpenWork (Recommended — 3-5 weeks to MVP)
-
-### Phase 0: Setup & Fork (Days 1-3)
-
-#### 0.1 Fork and Clean
-- [ ] Fork `different-ai/openwork` to `jisulicious/opencode-app`
-- [ ] Remove `ee/` (enterprise) directory entirely
-- [ ] Remove OpenWork branding (logos, names, URLs)
-- [ ] Audit all imports — ensure no `ee/` references remain
-- [ ] Remove or replace analytics/telemetry endpoints
-- [ ] Update `package.json` metadata (name, description, repository, author)
-- [ ] Verify MIT license headers across all files
-
-#### 0.2 Development Environment
-- [ ] Install prerequisites: Node.js 22+, pnpm 10.x, Rust toolchain, Bun 1.3.9+
-- [ ] Install platform-specific deps (WebKitGTK 4.1 on Linux, Xcode on macOS)
-- [ ] Run `pnpm install` and verify clean build
-- [ ] Run `pnpm dev` and verify desktop app launches
-- [ ] Run `pnpm test:e2e` and verify tests pass
-- [ ] Set up CI (GitHub Actions) for cross-platform builds
-
-#### 0.3 Deliverables
-- Clean fork builds and runs on all 3 platforms
-- CI pipeline producing builds for macOS, Windows, Linux
-- All enterprise code removed
+> Fork OpenWork → Rebrand → Customize → Ship
+> Estimated timeline: 4-5 weeks to MVP
 
 ---
 
-### Phase 1: Rebranding & Core Customization (Days 4-10)
+## Decisions Lock-In
 
-#### 1.1 Visual Identity
-- [ ] Replace app icon (Tauri: `src-tauri/icons/`)
-- [ ] Update Tauri window title in `tauri.conf.json`
-- [ ] Replace splash screen / loading states
-- [ ] Update color scheme via Tailwind config (optional)
-- [ ] Update about/settings pages with new branding
-
-#### 1.2 Configuration
-- [ ] Rename config directories (`.openwork/` → app-specific name)
-- [ ] Update default server ports if needed
-- [ ] Configure auto-update URLs to point to own GitHub releases
-- [ ] Set up code signing (macOS: Developer ID, Windows: EV cert)
-
-#### 1.3 Simplify Architecture (Optional)
-- [ ] Evaluate React/Solid hybrid — document which components use which
-- [ ] If feasible, begin consolidating toward single framework
-- [ ] Remove unused Tauri plugins if any
-
-#### 1.4 Deliverables
-- Rebranded app launches with custom identity
-- Auto-updates point to own release infrastructure
-- Architecture documented
+| Decision | Value |
+|----------|-------|
+| **App name** | WorkspaceAgent |
+| **Approach** | Fork OpenWork (Tauri 2) |
+| **Priority platforms** | macOS (ARM64 + x64), Windows (x64), then Linux |
+| **LLM providers** | OpenAI API + OpenAI-compatible local models |
+| **Code signing** | Unsigned initially |
+| **MVP features** | Sessions, permissions, timeline, templates, skills, **rich tables** |
 
 ---
 
-### Phase 2: Feature Hardening (Days 11-20)
+## Phase 0: Fork, Clean, Build (Days 1-3)
 
-#### 2.1 Core Workflow Testing
-- [ ] Test full session lifecycle: create → prompt → stream → complete
-- [ ] Test permission request/response flow end-to-end
-- [ ] Test agent switching (build ↔ plan)
-- [ ] Test project directory selection and context scoping
-- [ ] Test template save/load/run cycle
-- [ ] Test skills manager: browse, install, remove plugins
+### 0.1 Repository Setup
 
-#### 2.2 Platform Testing
-- [ ] macOS ARM64: full workflow test
-- [ ] macOS x64: full workflow test
-- [ ] Windows x64: full workflow test
-- [ ] Linux x64 (Ubuntu 22.04+): full workflow test
-- [ ] Linux ARM64 (if targeted): full workflow test
+```bash
+# Fork different-ai/openwork to jisulicious/opencode-app
+# Clone locally
+git clone https://github.com/jisulicious/opencode-app
+cd opencode-app
 
-#### 2.3 Bug Fixes & Polish
-- [ ] Fix any platform-specific issues discovered
-- [ ] Improve error messages for common failures (no OpenCode installed, network down)
-- [ ] Add first-run onboarding: API key setup, provider selection
-- [ ] Ensure keyboard shortcuts work across platforms
-
-#### 2.4 Deliverables
-- All core workflows verified on all platforms
-- Known bugs documented and critical ones fixed
-- First-run experience implemented
-
----
-
-### Phase 3: Differentiation & Release (Days 21-30)
-
-#### 3.1 Custom Features
-- [ ] Add features that differentiate from vanilla OpenWork:
-  - Enhanced project browser / recent projects list
-  - Improved diff viewer with syntax highlighting
-  - System tray with status indicator
-  - Custom keyboard shortcut configuration
-- [ ] Write user-facing documentation (README, getting started guide)
-
-#### 3.2 Release Engineering
-- [ ] Set up GitHub Releases workflow (auto-build on tag push)
-- [ ] Generate signed installers for each platform:
-  - macOS: `.dmg` (universal binary)
-  - Windows: `.msi` or `.exe` (NSIS)
-  - Linux: `.AppImage`, `.deb`
-- [ ] Set up auto-update server (GitHub Releases or custom)
-- [ ] Write CHANGELOG for v0.1.0
-
-#### 3.3 Launch
-- [ ] Create GitHub releases page with download links
-- [ ] Publish to Homebrew tap (macOS) and Scoop bucket (Windows) (optional)
-- [ ] Community announcement
-
-#### 3.4 Deliverables
-- v0.1.0 released on GitHub with signed binaries
-- Auto-update functional
-- Documentation published
-
----
-
-## Plan B: Rebuild from OpenCode (Alternative — 10-14 weeks to MVP)
-
-### Phase 0: Setup & Architecture (Week 1-2)
-
-#### 0.1 Project Scaffolding
-- [ ] Fork `anomalyco/opencode` or create standalone repo
-- [ ] If standalone: set up monorepo with Turborepo + pnpm/Bun
-- [ ] If fork: isolate work to `packages/desktop-electron` + `packages/app`
-- [ ] Set up CI for cross-platform Electron builds
-
-#### 0.2 Architecture Decisions
-- [ ] Choose: extend existing Electron app vs. new Tauri app
-- [ ] Choose: SolidJS (match upstream) vs. React (broader ecosystem)
-- [ ] Design IPC protocol between shell and OpenCode server
-- [ ] Design state management architecture
-- [ ] Design component hierarchy for main UI panels
-
-#### 0.3 Deliverables
-- Monorepo builds cleanly
-- Architecture decision records documented
-- CI produces platform builds
-
----
-
-### Phase 1: Orchestrator & Shell (Week 3-4)
-
-#### 1.1 Process Orchestrator
-- [ ] Build OpenCode server lifecycle manager:
-  - Detect system-installed OpenCode CLI
-  - Bundle OpenCode CLI as fallback
-  - Spawn server, health check, restart on crash
-  - Graceful shutdown with SIGTERM/SIGKILL
-- [ ] Implement server discovery (find free port, bind to localhost)
-- [ ] Implement log capture and forwarding to renderer
-
-#### 1.2 Desktop Shell
-- [ ] If Electron: configure electron-vite, window management, tray icon
-- [ ] If Tauri: set up Rust project, Tauri plugins, Vite frontend
-- [ ] Implement native menus (File, Edit, View, Help)
-- [ ] Implement keyboard shortcuts framework
-- [ ] Implement auto-update mechanism
-- [ ] Implement window state persistence (size, position)
-
-#### 1.3 Deliverables
-- Desktop app launches, spawns OpenCode server, confirms health
-- Native menus and keyboard shortcuts functional
-- Auto-update framework in place
-
----
-
-### Phase 2: Core UI — Sessions & Chat (Week 5-7)
-
-#### 2.1 Session Management Panel
-- [ ] Session list sidebar (create, select, delete, search)
-- [ ] Session metadata display (project path, model, created date)
-- [ ] Recent projects quick-access
-
-#### 2.2 Chat/Prompt Interface
-- [ ] Rich text input with markdown support
-- [ ] Send prompt to agent via SDK
-- [ ] Stream response display with SSE
-- [ ] Markdown rendering with syntax highlighting
-- [ ] Code block copy button
-- [ ] Agent indicator (build vs. plan)
-- [ ] Agent switching control
-
-#### 2.3 SDK Integration
-- [ ] Wire up `@opencode-ai/sdk` client
-- [ ] Implement session CRUD operations
-- [ ] Implement prompt send + SSE subscription
-- [ ] Handle connection errors gracefully
-
-#### 2.4 Deliverables
-- Can create session, send prompt, see streamed response
-- Session management working
-- Agent switching working
-
----
-
-### Phase 3: Permissions, Timeline & Config (Week 8-10)
-
-#### 3.1 Permission System UI
-- [ ] Permission request notification (toast/modal)
-- [ ] Approve/deny with optional "always allow" checkbox
-- [ ] Permission history view
-- [ ] File write preview (show diff before approving)
-
-#### 3.2 Execution Timeline
-- [ ] Todo/step list component
-- [ ] Real-time updates as agent progresses
-- [ ] Expandable detail for each step (tool call, result)
-- [ ] Visual indicators (pending, in-progress, completed, failed)
-
-#### 3.3 Configuration Panel
-- [ ] LLM provider selection (Claude, OpenAI, Google, local)
-- [ ] API key management (secure storage via OS keychain)
-- [ ] Model selection per provider
-- [ ] OpenCode server settings (port, path)
-- [ ] Theme selection (light/dark)
-
-#### 3.4 Deliverables
-- Full permission workflow operational
-- Timeline shows real-time agent progress
-- Provider/model configurable through UI
-
----
-
-### Phase 4: Polish & Release (Week 11-14)
-
-#### 4.1 Diff Viewer
-- [ ] Inline diff with syntax highlighting
-- [ ] Side-by-side diff mode
-- [ ] Accept/reject individual changes
-
-#### 4.2 Plugin/Skills UI
-- [ ] Browse available skills
-- [ ] Install/remove skills
-- [ ] Configure skill settings
-
-#### 4.3 Platform Polish
-- [ ] macOS: code signing, notarization, .dmg builder
-- [ ] Windows: NSIS installer, code signing
-- [ ] Linux: AppImage, .deb generation
-- [ ] Cross-platform testing and bug fixes
-
-#### 4.4 Release
-- [ ] GitHub Releases CI workflow
-- [ ] Auto-update server setup
-- [ ] README, documentation, CHANGELOG
-- [ ] v0.1.0 release
-
-#### 4.5 Deliverables
-- v0.1.0 released with all core features
-- Cross-platform signed binaries
-- Documentation published
-
----
-
-## 5. Technology Stack Summary
-
-### Plan A (Fork OpenWork)
-
-```
-Desktop Shell:    Tauri 2 (Rust)
-Frontend:         React 19 + SolidJS (existing hybrid)
-Build:            Vite + Tauri CLI
-Monorepo:         Turborepo + pnpm
-State:            TanStack Query + Solid signals
-Styling:          Tailwind CSS 4 + Radix Colors
-Code Editor:      CodeMirror 6
-Agent SDK:        @opencode-ai/sdk v1.x
-Auto-update:      tauri-plugin-updater
+# Verify build
+pnpm install
+pnpm dev        # Should launch Tauri desktop app
 ```
 
-### Plan B (Rebuild from OpenCode)
+### 0.2 Strip Enterprise Code
 
+- [ ] Delete `ee/` directory entirely
+- [ ] Search for all `ee/` and `enterprise` imports — remove or stub:
+  ```bash
+  grep -r "from.*ee/" --include="*.ts" --include="*.tsx"
+  grep -r "enterprise" --include="*.ts" --include="*.tsx"
+  ```
+- [ ] Remove enterprise-gated features from UI (look for feature flags)
+- [ ] Remove any proprietary license headers (replace with MIT)
+
+### 0.3 Strip OpenWork Branding
+
+- [ ] `apps/desktop/src-tauri/tauri.conf.json` — change app name, identifier, window title
+  ```json
+  {
+    "productName": "WorkspaceAgent",
+    "identifier": "com.workspaceagent.app",
+    "windows": [{ "title": "WorkspaceAgent" }]
+  }
+  ```
+- [ ] `apps/desktop/src-tauri/icons/` — replace all icon sizes (generate from single SVG)
+- [ ] `package.json` (root + all apps) — update name, description, author, repository URL
+- [ ] Search and replace "openwork" → "workspaceagent" in config paths:
+  ```bash
+  grep -r "openwork" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.toml"
+  ```
+- [ ] Update splash/loading screens
+
+### 0.4 Strip Telemetry & Analytics
+
+- [ ] Search for analytics/tracking endpoints and remove:
+  ```bash
+  grep -r "analytics\|telemetry\|tracking\|posthog\|mixpanel\|amplitude" --include="*.ts" --include="*.tsx"
+  ```
+- [ ] Remove any phone-home URLs
+
+### 0.5 Verify Clean Build
+
+- [ ] `pnpm install` — clean install
+- [ ] `pnpm typecheck` — zero errors
+- [ ] `pnpm dev` — app launches with new name/branding
+- [ ] `pnpm build` — production build succeeds
+- [ ] `pnpm test:e2e` — existing tests still pass
+
+### 0.6 CI Setup
+
+- [ ] Create `.github/workflows/build.yml`:
+  - Trigger on push to `main` and `dev`
+  - Matrix: macOS (ARM64), macOS (x64), Windows (x64), Linux (x64)
+  - Steps: install deps → typecheck → build → upload artifacts
+- [ ] Create `.github/workflows/release.yml`:
+  - Trigger on tag push (`v*`)
+  - Build all platforms → create GitHub Release → attach binaries
+- [ ] **No code signing steps** — builds are unsigned
+
+### Phase 0 Deliverables
+- [ ] Clean fork builds on macOS, Windows, Linux
+- [ ] All enterprise/branding/telemetry removed
+- [ ] CI producing unsigned builds for all platforms
+
+---
+
+## Phase 1: Provider Customization + Rich Tables (Days 4-12)
+
+### 1.1 Simplify Provider Configuration
+
+OpenWork supports all OpenCode providers. We narrow to OpenAI + compatible:
+
+- [ ] Locate provider configuration UI (likely in settings panel)
+- [ ] Replace multi-provider picker with simplified UI:
+
+  **Provider presets to include**:
+  | Preset | Base URL | API Key Required |
+  |--------|----------|-----------------|
+  | OpenAI | `https://api.openai.com/v1` | Yes |
+  | Ollama | `http://localhost:11434/v1` | No |
+  | LM Studio | `http://localhost:1234/v1` | No |
+  | Custom | User-defined | Optional |
+
+- [ ] Add "Test Connection" button that hits `/v1/models` endpoint
+- [ ] Add auto-detect for running local model servers:
+  ```typescript
+  async function detectLocalProviders(): Promise<ProviderConfig[]> {
+    const endpoints = [
+      { name: "Ollama", url: "http://localhost:11434/v1/models" },
+      { name: "LM Studio", url: "http://localhost:1234/v1/models" },
+    ]
+    const detected: ProviderConfig[] = []
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep.url, { signal: AbortSignal.timeout(2000) })
+        if (res.ok) detected.push({ name: ep.name, ... })
+      } catch { /* not running */ }
+    }
+    return detected
+  }
+  ```
+- [ ] Store provider config in app settings (Tauri's fs or opencode config)
+- [ ] Wire provider config into OpenCode server startup flags
+
+### 1.2 Build Rich Table Component
+
+This is the main new feature. Agent output often includes tables that need to be more than plain markdown.
+
+#### 1.2.1 Install Dependencies
+
+```bash
+cd apps/app
+pnpm add @tanstack/react-table
 ```
-Desktop Shell:    Electron 40.4 (Node.js)
-Frontend:         SolidJS (match upstream)
-Build:            electron-vite + electron-builder
-Monorepo:         Turborepo + Bun
-State:            Solid signals + stores
-Styling:          Tailwind CSS 4 + Radix Colors
-Code Editor:      CodeMirror 6
-Agent SDK:        @opencode-ai/sdk v1.x
-Auto-update:      electron-updater
-```
+
+#### 1.2.2 Create RichTable Component
+
+Location: `packages/ui/src/components/rich-table/`
+
+- [ ] `RichTable.tsx` — Main component wrapping TanStack Table
+  ```typescript
+  // Core features:
+  // - Parse markdown table data into TanStack Table format
+  // - Sortable columns (click header)
+  // - Resizable columns (drag border)
+  // - Sticky header row
+  // - Horizontal scroll for wide tables
+  // - Zebra striping via Tailwind
+  ```
+
+- [ ] `SortableHeader.tsx` — Column header with sort indicator
+  ```typescript
+  // ▲ / ▼ / ⇕ indicators
+  // Click to cycle: none → asc → desc → none
+  ```
+
+- [ ] `ResizableColumn.tsx` — Drag handle between columns
+  ```typescript
+  // Mouse drag to resize
+  // Double-click to auto-fit content width
+  ```
+
+- [ ] `TableCell.tsx` — Cell renderer supporting nested markdown
+  ```typescript
+  // Renders cell content through react-markdown
+  // Supports: code spans, bold, italic, links, inline code
+  // Syntax highlighting for code blocks in cells
+  ```
+
+- [ ] `TableToolbar.tsx` — Utility bar above table
+  ```typescript
+  // [Copy as Markdown] [Copy as CSV] [Copy as TSV]
+  // Optional search/filter input for tables with 10+ rows
+  ```
+
+#### 1.2.3 Integrate into Markdown Pipeline
+
+- [ ] Locate the markdown rendering component (uses `react-markdown` + `remark-gfm`)
+- [ ] Override the `table`, `thead`, `tbody`, `tr`, `th`, `td` components:
+  ```tsx
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    components={{
+      table: ({ children }) => <RichTable>{children}</RichTable>,
+      // ... override th, td to pass data to RichTable
+    }}
+  />
+  ```
+- [ ] Handle edge cases:
+  - Empty tables
+  - Single-column tables
+  - Tables with very long cell content (truncate + expand)
+  - Tables within nested markdown (blockquotes, lists)
+
+#### 1.2.4 Styling
+
+- [ ] Match existing Tailwind + Radix Colors theme
+- [ ] Light/dark mode support
+- [ ] Focus states for keyboard navigation
+- [ ] Print-friendly styles (no sticky header when printing)
+
+### 1.3 Test Rich Tables
+
+- [ ] Unit tests for table data parsing
+- [ ] Visual test with various table sizes (2 cols, 10 cols, 100 rows)
+- [ ] Test nested content (code blocks in cells, links in cells)
+- [ ] Test copy-as-CSV with special characters (commas, quotes, newlines)
+- [ ] Test keyboard navigation (Tab between cells, Enter to sort)
+
+### Phase 1 Deliverables
+- [ ] Provider config simplified to OpenAI + compatible
+- [ ] Local model auto-detection working
+- [ ] Rich table component complete with sort, resize, copy, filter
+- [ ] Tables render beautifully in agent output
 
 ---
 
-## 6. Resource Requirements
+## Phase 2: Feature Hardening & Platform Testing (Days 13-22)
 
-| Resource | Plan A (Fork) | Plan B (Rebuild) |
-|----------|--------------|-----------------|
-| **Developers** | 1-2 | 2-3 |
-| **Timeline** | 3-5 weeks | 10-14 weeks |
-| **Rust knowledge** | Basic (Tauri config) | None |
-| **Design work** | Minimal (rebrand) | Significant (build all UI) |
-| **Testing effort** | Moderate (verify existing) | Heavy (test all new code) |
-| **CI/CD setup** | Moderate | Moderate |
+### 2.1 Core Workflow Verification
+
+Test each workflow end-to-end on macOS first, then Windows:
+
+- [ ] **Session lifecycle**: Create session → select project dir → send prompt → stream response → see in history → resume session → delete session
+- [ ] **Agent switching**: Start with `build` agent → switch to `plan` → verify read-only behavior → switch back
+- [ ] **Permissions**: Agent requests file write → permission dialog appears → approve → file written; deny → agent notified
+- [ ] **Execution timeline**: Agent creates todos → timeline updates in real-time → steps show tool calls and results
+- [ ] **Templates**: Create template from session → save → load in new session → execute
+- [ ] **Skills**: Open skills manager → browse available → install one → verify it's active → remove it
+- [ ] **Tables**: Agent outputs a table → rendered as rich table → sort columns → resize → copy as CSV
+
+### 2.2 Provider Verification
+
+- [ ] **OpenAI cloud**: Set API key → select GPT-4o → run coding task → verify streaming works
+- [ ] **Ollama local**: Start Ollama → app auto-detects → select model → run task → verify offline-capable
+- [ ] **LM Studio**: Start LM Studio server → app auto-detects → run task
+- [ ] **Custom endpoint**: Enter arbitrary URL → test connection → run task
+- [ ] **Provider switching**: Change provider mid-app → new sessions use new provider
+- [ ] **Invalid key handling**: Enter bad API key → get clear error → don't crash
+
+### 2.3 macOS Testing (Priority 1)
+
+- [ ] ARM64 (Apple Silicon): Full workflow on M1/M2/M3
+- [ ] x64 (Intel): Full workflow
+- [ ] First-launch experience: unsigned app → right-click Open → confirm → works
+- [ ] Window management: resize, minimize, full-screen, multi-monitor
+- [ ] Keyboard shortcuts: Cmd+N (new session), Cmd+, (settings), Cmd+Q (quit)
+- [ ] `.dmg` installer: drag to Applications → launch from Launchpad
+
+### 2.4 Windows Testing (Priority 2)
+
+- [ ] x64: Full workflow on Windows 10/11
+- [ ] First-launch: SmartScreen warning → "More info" → "Run anyway"
+- [ ] WebView2: verify bundled or auto-install on Win 10
+- [ ] Installer: `.msi` install/uninstall cycle
+- [ ] Keyboard shortcuts: Ctrl+N, Ctrl+, , Alt+F4
+
+### 2.5 Linux Testing (Priority 3)
+
+- [ ] x64 Ubuntu 22.04+: Install WebKitGTK 4.1 → run AppImage
+- [ ] Verify `.deb` package installs cleanly
+- [ ] Test rendering parity with macOS/Windows (WebKitGTK differences)
+
+### 2.6 Bug Fix Pass
+
+- [ ] Fix all P0 (crash/data loss) bugs found in testing
+- [ ] Fix all P1 (broken workflow) bugs
+- [ ] Document P2 (cosmetic/UX) bugs for post-MVP
+
+### Phase 2 Deliverables
+- [ ] All core workflows verified on macOS and Windows
+- [ ] Linux builds functional (may have known issues)
+- [ ] All P0 and P1 bugs fixed
+- [ ] Provider config tested with cloud and local models
 
 ---
 
-## 7. Post-MVP Roadmap (Both Plans)
+## Phase 3: Polish & First-Run Experience (Days 23-28)
 
-### v0.2 — Enhanced Editing (Month 2-3)
-- Inline file editor with full CodeMirror
-- Git integration panel (status, diff, commit)
-- Terminal embed alongside agent output
-- Multi-session tabs
+### 3.1 First-Run Onboarding
 
-### v0.3 — Collaboration (Month 3-4)
-- Session export/import
-- Team sharing via links
-- Debug report generation
-- Audit log for enterprise use
+New users need a guided setup:
 
-### v0.4 — Ecosystem (Month 4-6)
-- Plugin marketplace UI
-- Custom agent creation interface
-- MCP server integration panel
-- Extension API for third-party developers
+- [ ] **Welcome screen**: App name, brief description, "Get Started" button
+- [ ] **Provider setup**: 
+  - "Do you have an OpenAI API key?" → Yes: enter key → No: "Set up a local model"
+  - Auto-detect local models if running
+  - "Test Connection" with spinner and success/failure feedback
+- [ ] **Project selection**: "Open a project folder to get started"
+- [ ] **Quick tour**: Highlight key UI areas (session panel, chat, timeline, settings)
+- [ ] Store onboarding-complete flag so it doesn't repeat
 
-### v1.0 — Production (Month 6-8)
-- Performance optimization pass
-- Accessibility audit (WCAG 2.1 AA)
-- Full i18n (10+ languages)
-- Enterprise features (SSO, RBAC, audit)
-- Homebrew / Scoop / Snap distribution
+### 3.2 Error States
+
+- [ ] No OpenCode installed → clear message + install instructions
+- [ ] OpenCode server crash → auto-restart with user notification
+- [ ] Network down (cloud provider) → suggest local model
+- [ ] Invalid API key → specific error, link to provider's key page
+- [ ] No project selected → prompt to open a folder
+
+### 3.3 UX Polish
+
+- [ ] Loading states for all async operations (spinners, skeletons)
+- [ ] Empty states for: no sessions, no templates, no skills
+- [ ] Keyboard shortcut cheat sheet (Help menu or `?` key)
+- [ ] System tray icon with quick status
+
+### 3.4 Documentation
+
+- [ ] `README.md` — Project description, install, build from source, contribute
+- [ ] `CONTRIBUTING.md` — Dev setup, architecture overview, React/Solid guide
+- [ ] `docs/providers.md` — How to configure each LLM provider
+- [ ] Add unsigned-app instructions for macOS and Windows
+
+### Phase 3 Deliverables
+- [ ] First-run onboarding guides new users through setup
+- [ ] Error states handled gracefully with actionable messages
+- [ ] Documentation written for users and contributors
 
 ---
 
-## 8. Decision Checklist
+## Phase 4: Release (Days 29-32)
 
-Before starting, confirm:
+### 4.1 Pre-Release Checklist
 
-- [ ] **Approach chosen**: Plan A (Fork OpenWork) or Plan B (Rebuild from OpenCode)?
-- [ ] **App name decided**: What will the product be called?
-- [ ] **Target platforms confirmed**: All three (macOS, Windows, Linux)?
-- [ ] **Code signing certificates**: Do you have Apple Developer ID and Windows EV cert?
-- [ ] **LLM providers to support at launch**: Which ones?
-- [ ] **Distribution channel**: GitHub Releases only, or also Homebrew/Scoop?
-- [ ] **Team size and availability**: Who is building this?
+- [ ] Version set to `0.1.0` in all package.json files
+- [ ] CHANGELOG.md written
+- [ ] All P0/P1 bugs fixed
+- [ ] CI green on all platforms
+- [ ] README has download links (will fill after release)
+- [ ] License file is MIT
+
+### 4.2 Build Release Artifacts
+
+- [ ] macOS ARM64: `.dmg` (unsigned)
+- [ ] macOS x64: `.dmg` (unsigned)
+- [ ] Windows x64: `.msi` (unsigned)
+- [ ] Linux x64: `.AppImage` + `.deb`
+
+### 4.3 Publish
+
+- [ ] Create GitHub Release `v0.1.0`
+- [ ] Attach all platform binaries
+- [ ] Write release notes with:
+  - Feature highlights
+  - Known issues (unsigned binary warnings)
+  - Provider setup instructions
+  - System requirements
+- [ ] Update README with download links
+
+### 4.4 Post-Release
+
+- [ ] Verify auto-update mechanism points to GitHub Releases
+- [ ] Test upgrade path: install v0.1.0 → publish v0.1.1 → verify update prompt
+- [ ] Monitor GitHub Issues for early adopter feedback
+
+### Phase 4 Deliverables
+- [ ] v0.1.0 published on GitHub Releases
+- [ ] Binaries for macOS, Windows, Linux available
+- [ ] Auto-update mechanism verified
+
+---
+
+## Post-MVP Roadmap
+
+### v0.2 — Enhanced Editing (Weeks 6-9)
+
+- [ ] Inline file editor with full CodeMirror integration
+- [ ] Git integration panel (status, diff, commit, branch)
+- [ ] Terminal embed alongside agent output
+- [ ] Multi-session tabs (side-by-side or tabbed)
+- [ ] Table export to file (CSV, JSON)
+
+### v0.3 — Collaboration & Polish (Weeks 10-13)
+
+- [ ] Session export/import (share sessions as files)
+- [ ] Debug report generation (one-click export for bug reports)
+- [ ] Performance optimization pass (startup time, memory)
+- [ ] Accessibility audit (WCAG 2.1 AA)
+- [ ] Additional i18n languages
+
+### v0.4 — Ecosystem (Weeks 14-18)
+
+- [ ] MCP server configuration panel
+- [ ] Custom agent creation interface
+- [ ] Plugin/extension API for third-party developers
+- [ ] Homebrew tap + Scoop bucket distribution
+
+### v1.0 — Production (Weeks 19-26)
+
+- [ ] Code signing certificates (macOS + Windows)
+- [ ] Notarized macOS builds
+- [ ] Signed Windows installers
+- [ ] Enterprise features (SSO, RBAC, audit logging)
+- [ ] Performance benchmarking suite
+- [ ] Full test coverage (unit + integration + e2e)
+
+---
+
+## Resource Summary
+
+| Phase | Duration | Focus |
+|-------|----------|-------|
+| Phase 0 | Days 1-3 | Fork, clean, CI |
+| Phase 1 | Days 4-12 | Provider UI, rich tables |
+| Phase 2 | Days 13-22 | Test all platforms, fix bugs |
+| Phase 3 | Days 23-28 | Onboarding, polish, docs |
+| Phase 4 | Days 29-32 | Release v0.1.0 |
+| **Total** | **~32 working days** | **~6-7 calendar weeks** |
+
+### Prerequisites
+
+| Requirement | Detail |
+|-------------|--------|
+| **Node.js** | v22+ |
+| **pnpm** | v10.x |
+| **Rust** | Latest stable (for Tauri) |
+| **Bun** | v1.3.9+ |
+| **macOS** | Xcode Command Line Tools |
+| **Windows** | Visual Studio Build Tools + WebView2 |
+| **Linux** | WebKitGTK 4.1 + build-essential |

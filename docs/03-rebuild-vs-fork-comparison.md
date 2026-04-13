@@ -1,6 +1,7 @@
-# Rebuild vs. Build-from-Source Comparison
+# Rebuild vs. Build-from-Source — Final Comparison
 
-> Comparing: building a new desktop app from OpenCode vs. forking OpenWork
+> Decision: **Fork OpenWork** (Plan A)
+> This document preserves the analysis that led to the decision.
 
 ---
 
@@ -18,7 +19,6 @@
 | **Monorepo tool** | Turborepo | Turborepo |
 | **Packages** | 19 | 8 apps + 3 packages |
 | **Commits** | 11,091 | 2,269 |
-| **Releases** | 759 | 1,055 |
 
 ---
 
@@ -28,63 +28,37 @@
 
 | Factor | OpenCode (Rebuild) | OpenWork (Fork) |
 |--------|-------------------|-----------------|
-| **Codebase size** | 19 packages — large, but desktop is only 2 packages | 11 apps/packages — smaller but all relevant |
-| **Framework complexity** | Single framework (SolidJS) | Hybrid (React 19 + SolidJS + Solid Router) |
-| **Build system** | electron-vite (well-documented) | Vite + Tauri CLI + custom sidecar scripts |
-| **Rust requirement** | No (Electron is pure JS/Node) | Yes (Tauri requires Rust toolchain) |
-| **Infrastructure** | SST/Cloudflare (can ignore for desktop) | Orchestrator + server + router (must understand) |
-| **UI amount to build** | ~70% must be built new | ~20% customization needed |
-
-**Verdict**: OpenWork is more complex in framework composition (React+Solid hybrid is unusual), but OpenCode requires building more from scratch. **OpenCode wins on framework simplicity; OpenWork wins on feature completeness.**
+| Codebase size | 19 packages (only 2 for desktop) | 11 units (all relevant) |
+| Framework complexity | Single (SolidJS) | Hybrid (React + SolidJS) |
+| Rust requirement | No (Electron) | Yes (Tauri) |
+| UI to build from scratch | ~70% | ~20% |
 
 ### 2.2 Task Size
 
 | Task | OpenCode (Rebuild) | OpenWork (Fork) |
 |------|-------------------|-----------------|
-| **Session management UI** | Build from scratch | Already built |
-| **Permission system UI** | Build from scratch | Already built |
-| **Execution timeline** | Build from scratch | Already built |
-| **Template/workflow system** | Build from scratch | Already built |
-| **Skills/plugin manager** | Build from scratch | Already built |
-| **i18n** | Build from scratch | 5 languages done |
-| **Debug exports** | Build from scratch | Already built |
-| **Desktop shell** | Exists (Electron, beta) | Exists (Tauri, production) |
-| **Auto-updates** | Exists (electron-updater) | Exists (tauri-plugin-updater) |
-| **Process orchestration** | Build from scratch | Already built |
-| **Rebranding** | N/A (fresh) | Strip branding, EE components |
-| **Estimated effort** | **10-14 weeks** (2-3 devs) | **3-5 weeks** (1-2 devs) |
-
-**Verdict**: **OpenWork wins decisively on task size** — it delivers 3-4 months of UI/UX development for free.
+| Session management UI | Build new | Exists |
+| Permission system UI | Build new | Exists |
+| Execution timeline | Build new | Exists |
+| Template system | Build new | Exists |
+| Skills/plugin manager | Build new | Exists |
+| i18n (5 languages) | Build new | Exists |
+| Process orchestrator | Build new | Exists |
+| **Estimated effort** | **10-14 weeks** | **3-5 weeks** |
 
 ### 2.3 Licensing
 
-| Aspect | OpenCode | OpenWork |
-|--------|----------|----------|
-| **Core license** | MIT | MIT |
-| **Enterprise directory** | `packages/enterprise` (likely proprietary gate) | `ee/` (likely proprietary gate) |
-| **Dependencies** | All MIT-compatible | All MIT-compatible |
-| **Electron license** | MIT | N/A |
-| **Tauri license** | N/A | MIT + Apache 2.0 |
-| **Can we ship MIT?** | Yes | Yes (exclude `ee/` directory) |
-| **Patent concerns** | None identified | None identified |
+Both MIT. Both compatible. Tie.
 
-**Verdict**: **Tie** — both are MIT and fully compatible with our MIT goal. Simply exclude enterprise directories from both.
-
-### 2.4 Expandability (UI Features, Plugins, Future Growth)
+### 2.4 Expandability
 
 | Factor | OpenCode (Rebuild) | OpenWork (Fork) |
 |--------|-------------------|-----------------|
-| **UI component library** | `@opencode-ai/ui` (SolidJS, mature) | `@openwork/ui` (React+Solid, custom) |
-| **Plugin/skills architecture** | OpenCode's `packages/plugin` + `packages/script` | Inherits OpenCode's plugin system + GUI manager |
-| **Adding new UI panels** | SolidJS only — straightforward | Must navigate React/Solid boundary |
-| **Adding new agent features** | Direct access to 19 packages | Depends on `@opencode-ai/sdk` public API |
-| **Code editor integration** | CodeMirror available (used in web app) | CodeMirror + Lexical (both already integrated) |
-| **Theming** | Tailwind + Radix Colors | Tailwind + Radix Colors |
-| **Upstream sync** | Easy (same repo, cherry-pick) | Harder (separate project, API changes may break) |
-| **Community contributions** | Lower barrier (JS only) | Higher barrier (JS + Rust) |
-| **Desktop-native features** | Electron has massive plugin ecosystem | Tauri has growing but smaller ecosystem |
-
-**Verdict**: **OpenCode wins on long-term expandability** (simpler framework, direct upstream access, lower contributor barrier). **OpenWork wins on immediate feature richness** (more UI surfaces already built).
+| Adding new UI panels | SolidJS only (simple) | Navigate React/Solid boundary |
+| Upstream sync | Easy (same repo) | Manual (separate project) |
+| Contributor barrier | Low (JS only) | Medium (JS + Rust) |
+| Desktop plugin ecosystem | Electron (massive) | Tauri (growing) |
+| Performance headroom | Lower (Electron) | Higher (Tauri) |
 
 ---
 
@@ -92,55 +66,33 @@
 
 | Dimension | Weight | OpenCode (Rebuild) | OpenWork (Fork) |
 |-----------|--------|-------------------|-----------------|
-| **Complexity** | 20% | 7/10 (simpler framework) | 5/10 (hybrid framework) |
-| **Task size** | 30% | 4/10 (build from scratch) | 9/10 (mostly done) |
-| **Licensing** | 15% | 10/10 (MIT, clean) | 10/10 (MIT, clean) |
-| **Expandability** | 20% | 8/10 (direct upstream) | 6/10 (SDK-coupled) |
-| **Binary/Performance** | 15% | 5/10 (Electron, heavy) | 8/10 (Tauri, light) |
-| | | | |
+| Complexity | 20% | 7/10 | 5/10 |
+| Task size | 30% | 4/10 | 9/10 |
+| Licensing | 15% | 10/10 | 10/10 |
+| Expandability | 20% | 8/10 | 6/10 |
+| Binary/Performance | 15% | 5/10 | 8/10 |
 | **Weighted Score** | 100% | **6.3/10** | **7.6/10** |
 
 ---
 
-## 4. Risk Analysis
+## 4. Decision
 
-### 4.1 OpenCode Rebuild Risks
+### Chosen: Fork OpenWork
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Large scope creep (building all UI from scratch) | High | Strict MVP scope, ship iteratively |
-| Electron bundle size concerns | Medium | Tree-shaking, lazy loading |
-| Beta desktop may have undiscovered bugs | Medium | Heavy testing, report upstream |
-| Upstream may change desktop architecture | Low | Pin to stable release tags |
+**Primary reasons**:
+1. **3-4 month head start** on UI features (sessions, permissions, timeline, templates, skills, i18n)
+2. **Tauri delivers better performance** — smaller binary (~30-50 MB vs ~150-200 MB), lower memory
+3. **Skills and templates already built** — these are MVP requirements for WorkspaceAgent
+4. **MIT license** is clean and compatible
 
-### 4.2 OpenWork Fork Risks
+**Accepted trade-offs**:
+1. React/Solid hybrid adds framework complexity (manageable — document which is which)
+2. Rust toolchain required for contributors (Tauri abstracts most of it)
+3. Upstream sync with OpenWork is manual (acceptable — we diverge intentionally)
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| React+Solid hybrid causes maintainability issues | High | Gradually migrate to single framework |
-| Upstream OpenWork diverges, making sync painful | Medium | Maintain clean fork boundary, use SDK |
-| Enterprise (ee/) removal breaks assumptions | Medium | Audit all imports before stripping |
-| Tauri WebKitGTK issues on Linux distros | Medium | Document requirements, provide fallback |
-| OpenCode SDK version compatibility | Medium | Pin SDK version, test on updates |
+### When to reconsider
 
----
-
-## 5. Recommendation
-
-### Primary Recommendation: **Fork OpenWork** (Option C)
-
-**Why**: The 3-4 month head start on UI features is decisive. The hybrid React/Solid complexity is manageable and can be progressively simplified. The Tauri base provides better performance characteristics than Electron.
-
-### Conditional Alternative: **Rebuild from OpenCode** (Option A)
-
-**When this is better**:
-- If the team has strong SolidJS expertise and prefers framework purity
-- If long-term upstream alignment with OpenCode is the top priority
-- If the React/Solid hybrid in OpenWork proves unworkable
-- If you want Electron's richer plugin ecosystem
-
-### What We Do NOT Recommend
-
-- **Building entirely from scratch** — too much existing work to ignore
-- **Using both Electron AND Tauri** — pick one, maintain one
-- **Keeping the enterprise directory** — strip it for clean MIT
+Reconsider the Electron/OpenCode approach if:
+- The React/Solid hybrid proves unworkable for the team
+- Tauri's WebView introduces critical rendering bugs
+- OpenCode's desktop app exits beta and matches OpenWork's features

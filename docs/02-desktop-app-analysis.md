@@ -1,203 +1,183 @@
-# Desktop App Wrapping Analysis
+# WorkspaceAgent — Desktop App Wrapping Analysis
 
-> How to turn OpenCode into a desktop application like Claude Cowork / OpenWork
-
----
-
-## 1. What Claude Cowork / OpenWork Does
-
-Claude Cowork (Anthropic's product) and OpenWork (the open-source alternative) share a common UX pattern:
-
-| Capability | Description |
-|-----------|-------------|
-| **Agent orchestration** | Manages an AI coding agent (Claude Code / OpenCode) as a background process |
-| **Session UI** | Create sessions, send prompts, view streamed responses in a chat-like interface |
-| **Permission gating** | Agent requests for file writes, shell commands, etc. surface as approve/deny dialogs |
-| **Execution timeline** | Visual representation of what the agent is doing (todos, tool calls) |
-| **Rich output** | Markdown rendering, syntax-highlighted code blocks, inline diffs |
-| **Project context** | Automatically scopes the agent to a working directory |
-| **Template/skill system** | Save reusable workflows and install community plugins |
-| **Desktop-native** | System tray, native menus, keyboard shortcuts, auto-updates |
-
-The core pattern is: **a native desktop shell hosting a web UI that communicates with a local agent server**.
+> How OpenCode becomes WorkspaceAgent: a Tauri-wrapped desktop app forked from OpenWork
 
 ---
 
-## 2. What Already Exists in OpenCode
+## 1. The Desktop App Pattern
 
-OpenCode's monorepo already contains most of the building blocks:
+Apps like Claude Cowork and OpenWork follow a consistent architecture:
 
-### 2.1 Existing Desktop Infrastructure
+| Layer | What It Does |
+|-------|-------------|
+| **Native shell** | Tauri/Electron window, system tray, native menus, auto-updates |
+| **Web UI** | React/Solid app rendering sessions, chat, settings |
+| **Orchestrator** | Spawns and manages the AI agent server process |
+| **Agent server** | OpenCode running as a local HTTP server |
+| **LLM backend** | Cloud API (OpenAI) or local model (Ollama) |
 
-| Component | Package | Status |
-|-----------|---------|--------|
-| Electron shell | `packages/desktop-electron` | Beta, shipping |
-| Web UI (SolidJS) | `packages/app` | Production |
-| Component library | `packages/ui` | Production |
-| JavaScript SDK | `packages/sdk` | Production (v1.x) |
-| Plugin system | `packages/plugin` | Production |
-| Auto-updates | `electron-updater` | Integrated |
-
-### 2.2 What OpenCode's Desktop Already Has
-
-- **Electron 40.4** with electron-vite build
-- **SolidJS** frontend (same code as the web app)
-- **node-pty** for native terminal emulation
-- **electron-store** for local persistence
-- **electron-window-state** for window management
-- Platform-specific builds via electron-builder
-- Context menus, logging, auto-updates
-
-### 2.3 Gaps to Fill (What OpenWork Adds Beyond OpenCode Desktop)
-
-| Gap | Description | OpenWork's Solution |
-|-----|-------------|-------------------|
-| **Orchestrator** | Process lifecycle management for the agent server | Dedicated `apps/orchestrator` package |
-| **Permission UI** | Rich in-app permission request/response flow | Custom permission components |
-| **Session management UI** | Create/switch/delete sessions visually | Full session panel |
-| **Execution timeline** | Visual todo/step tracking | Timeline component |
-| **Template system** | Save and rerun workflows | Local storage templates |
-| **Skills manager** | Browse/install/manage plugins via GUI | Skills management panel |
-| **Debug exports** | Export session data for troubleshooting | Export functionality |
-| **i18n** | Multi-language support | 5 languages supported |
-| **Host/Client modes** | Connect to local or remote servers | Mode switching UI |
+WorkspaceAgent follows this same pattern, forked from OpenWork's Tauri 2 implementation.
 
 ---
 
-## 3. Architecture Options
+## 2. What OpenWork Already Provides
 
-### Option A: Extend OpenCode's Existing Electron App
+OpenWork gives us approximately **80% of the needed functionality** out of the box:
 
-**Approach**: Fork OpenCode, enhance `packages/desktop-electron` and `packages/app` with the missing UI features.
+### 2.1 Existing Features (Keep As-Is)
 
-```
-opencode (fork)
-├── packages/
-│   ├── desktop-electron/   ← Enhance shell (orchestrator, tray, etc.)
-│   ├── app/                ← Add session mgmt, permissions, timeline UI
-│   ├── ui/                 ← Extend component library
-│   └── ...existing packages
-```
+| Feature | Implementation | Quality |
+|---------|---------------|---------|
+| Session create/list/resume/delete | `@opencode-ai/sdk` + React UI | Production |
+| Real-time streaming via SSE | `/event` subscription | Production |
+| Permission request/response | In-app approve/deny flow | Production |
+| Execution timeline | Todo visualization component | Production |
+| Template system | Local storage save/load/run | Production |
+| Skills manager | Plugin browse/install/remove GUI | Production |
+| Debug exports | Session data export | Production |
+| Auto-updates | `tauri-plugin-updater` | Production |
+| i18n | 5 languages (EN, JA, ZH, VI, PT-BR) | Production |
+| Deep linking | `tauri-plugin-deep-link` | Production |
+| Single instance | `tauri-plugin-single-instance` | Production |
 
-**Pros**:
-- Stays within OpenCode's ecosystem — automatic upstream updates
-- SolidJS UI already built and working
-- Electron infrastructure proven and shipping
-- All 19 packages available (SDK, plugins, etc.)
-- Same language/runtime throughout (TypeScript/Bun)
+### 2.2 What We Must Change
 
-**Cons**:
-- Electron = larger binary (~150-200 MB) and higher memory (~200-400 MB)
-- Must build orchestrator, permission UI, timeline from scratch
-- OpenCode's desktop is still beta — may have rough edges
-- Tightly coupled to OpenCode's monorepo structure
+| Change | Effort | Description |
+|--------|--------|-------------|
+| **Rebranding** | Small | Name, icons, colors, config paths → WorkspaceAgent |
+| **Strip enterprise** | Small | Remove `ee/` directory and all references |
+| **Provider UI** | Medium | Simplify to OpenAI + OpenAI-compatible only |
+| **Rich tables** | Medium | New TanStack Table component in markdown renderer |
+| **Unsigned distribution** | Small | Remove code signing requirements from CI (for now) |
 
-### Option B: Build a New Tauri Shell (OpenWork Pattern)
+### 2.3 What We Must Build New
 
-**Approach**: Create a new Tauri-based desktop app that wraps OpenCode, following OpenWork's architecture.
-
-```
-opencode-desktop (new repo)
-├── apps/
-│   ├── desktop/        ← Tauri shell (Rust)
-│   ├── app/            ← React/Solid UI
-│   └── orchestrator/   ← Process manager
-├── packages/
-│   └── ui/             ← Component library
-```
-
-**Pros**:
-- Tauri = smaller binary (~20-40 MB), lower memory (~50-150 MB)
-- Clean architecture not burdened by OpenCode's 19-package monorepo
-- Can cherry-pick best patterns from both OpenCode and OpenWork
-- Rust backend for system operations (file watching, process management)
-
-**Cons**:
-- Must build the full UI from scratch (or port from OpenWork)
-- Tauri requires Rust toolchain for contributors
-- WebKitGTK dependency on Linux (must be installed separately)
-- Smaller ecosystem than Electron for desktop-specific needs
-
-### Option C: Fork OpenWork and Customize
-
-**Approach**: Fork different-ai/openwork, rebrand, and customize.
-
-```
-openwork (fork)
-├── apps/
-│   ├── desktop/        ← Tauri shell (already built)
-│   ├── app/            ← React+Solid UI (already built)
-│   └── orchestrator/   ← Already built
-├── packages/
-│   └── ui/             ← Already built
-```
-
-**Pros**:
-- Most features already implemented (sessions, permissions, timeline, templates, i18n)
-- Tauri desktop shell fully functional
-- Months of development work available immediately
-- MIT licensed — full freedom to modify
-
-**Cons**:
-- Hybrid React/Solid codebase adds complexity
-- Tied to OpenWork's architectural decisions
-- Must strip/replace enterprise (`ee/`) components
-- Dependency on OpenWork maintainers for upstream compatibility
-- Complex dependency tree (Solid + React + Tauri + OpenCode SDK)
+| Feature | Effort | Description |
+|---------|--------|-------------|
+| **Rich table component** | 3-5 days | TanStack Table integration in markdown renderer with sort, resize, sticky headers, copy-as-CSV |
+| **OpenAI-focused provider panel** | 2-3 days | Simplified config for OpenAI API key + OpenAI-compatible base URL |
+| **Local model discovery** | 1-2 days | Auto-detect running Ollama/LM Studio instances |
 
 ---
 
-## 4. Recommendation Summary
+## 3. Architecture Mapping
 
-| Criterion | Option A (Extend Electron) | Option B (New Tauri) | Option C (Fork OpenWork) |
-|-----------|---------------------------|---------------------|------------------------|
-| Time to MVP | 6-8 weeks | 10-14 weeks | 3-5 weeks |
-| Binary size | ~150-200 MB | ~20-40 MB | ~30-50 MB |
-| Memory usage | ~200-400 MB | ~50-150 MB | ~60-200 MB |
-| Code complexity | Medium | Medium | High (hybrid frameworks) |
-| Upstream sync | Easy (same repo) | Manual | Manual |
-| UI features at start | ~30% | 0% | ~80% |
-| Contributor barrier | Low (JS only) | Medium (JS + Rust) | Medium (JS + Rust) |
+### 3.1 OpenWork → WorkspaceAgent Mapping
 
----
+```
+OpenWork                          WorkspaceAgent
+────────                          ──────────────
+apps/desktop/     (Tauri shell)   → apps/desktop/     (rebrand only)
+apps/app/         (React+Solid)   → apps/app/         (add rich tables, provider UI)
+apps/orchestrator/(process mgr)   → apps/orchestrator/ (keep as-is)
+apps/server/      (backend)       → apps/server/       (keep as-is)
+packages/ui/      (components)    → packages/ui/       (add table component)
+ee/               (enterprise)    → DELETED
+```
 
-## 5. Key Technical Considerations
+### 3.2 New Component: Rich Table Renderer
 
-### 5.1 OpenCode Server Communication
+```
+packages/ui/src/components/
+├── rich-table/
+│   ├── RichTable.tsx          # TanStack Table wrapper
+│   ├── SortableHeader.tsx     # Click-to-sort column headers
+│   ├── ResizableColumn.tsx    # Drag-to-resize borders
+│   ├── TableCell.tsx          # Markdown-aware cell renderer
+│   ├── TableToolbar.tsx       # Copy, filter, export controls
+│   └── index.ts
+```
 
-Both approaches use `@opencode-ai/sdk` to communicate with the OpenCode server:
+Integration point in markdown rendering pipeline:
+
+```
+react-markdown
+  → remark-gfm (parse GFM tables)
+  → custom table component override
+  → RichTable (TanStack Table)
+  → Tailwind styling + Radix Colors
+```
+
+### 3.3 Provider Configuration Architecture
 
 ```typescript
-import { createClient } from "@opencode-ai/sdk/v2/client"
-
-const client = createClient({ baseUrl: "http://127.0.0.1:PORT" })
-
-// Create session
-const session = await client.session.create({ path: "/project/dir" })
-
-// Send prompt
-await client.session.chat({ sessionId: session.id, content: "Fix the bug in auth.ts" })
-
-// Subscribe to events (SSE)
-const events = client.session.subscribe({ sessionId: session.id })
-for await (const event of events) {
-  // Render streaming output
+// Simplified provider config for WorkspaceAgent
+interface ProviderConfig {
+  type: "openai" | "openai-compatible"
+  name: string           // Display name
+  baseUrl: string        // API endpoint
+  apiKey?: string        // Optional for local models
+  model: string          // Model identifier
+  isDefault: boolean     // Default provider for new sessions
 }
+
+// Preset providers
+const PRESETS: ProviderConfig[] = [
+  { type: "openai", name: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o" },
+  { type: "openai-compatible", name: "Ollama", baseUrl: "http://localhost:11434/v1", model: "llama3.3" },
+  { type: "openai-compatible", name: "LM Studio", baseUrl: "http://localhost:1234/v1", model: "" },
+]
 ```
 
-### 5.2 Process Lifecycle
+---
 
-The desktop app must manage the OpenCode server process:
+## 4. Platform-Specific Notes
 
-1. **Startup**: Detect or install OpenCode CLI → spawn server → wait for health check
-2. **Runtime**: Monitor process health, restart on crash, pipe logs
-3. **Shutdown**: Graceful SIGTERM → wait → SIGKILL if needed
-4. **Updates**: Check for new OpenCode versions, prompt user to update
+### 4.1 macOS (Priority 1)
 
-### 5.3 Platform-Specific Concerns
+| Aspect | Detail |
+|--------|--------|
+| Build target | Universal binary (ARM64 + x64) |
+| Installer | `.dmg` |
+| Signing | **Unsigned initially** — users must right-click → Open on first launch |
+| Gatekeeper | Add instructions for bypassing "unidentified developer" warning |
+| Tauri deps | Xcode Command Line Tools |
 
-| Platform | Consideration |
-|----------|--------------|
-| **macOS** | Code signing + notarization required for distribution, universal binary (ARM64+x64) |
-| **Windows** | NSIS/MSI installer, Defender SmartScreen bypass via signing |
-| **Linux** | AppImage/deb/rpm, WebKitGTK 4.1 dependency for Tauri |
+### 4.2 Windows (Priority 2)
+
+| Aspect | Detail |
+|--------|--------|
+| Build target | x64 |
+| Installer | `.msi` (via WiX) or `.exe` (NSIS) |
+| Signing | **Unsigned initially** — SmartScreen warning on first run |
+| Workaround | Document "More info → Run anyway" flow for users |
+| Tauri deps | Visual Studio Build Tools, WebView2 (bundled on Win 10+) |
+
+### 4.3 Linux (Priority 3)
+
+| Aspect | Detail |
+|--------|--------|
+| Build target | x64 |
+| Installer | `.AppImage` (universal) + `.deb` (Ubuntu/Debian) |
+| Signing | Not required on Linux |
+| Tauri deps | WebKitGTK 4.1 (must document installation) |
+| Known issue | WebKitGTK rendering differences from Chromium — needs testing |
+
+---
+
+## 5. What the React/Solid Hybrid Means in Practice
+
+OpenWork uses a hybrid approach that requires understanding:
+
+| Layer | Framework | Why |
+|-------|-----------|-----|
+| Routing | SolidJS (`@solidjs/router`) | Reactive routing with fine-grained updates |
+| Data fetching | React (`@tanstack/react-query`) | Server state management |
+| Virtual scrolling | Solid (`@tanstack/solid-virtual`) | Performance-critical list rendering |
+| Icons | Solid (`lucide-solid`) | Tree-shakeable icon components |
+| Core UI components | Both | Depends on component |
+| **New table component** | **React** | TanStack Table has best React integration |
+
+**Practical impact**: When adding new features, choose the framework based on what it integrates with. For the rich table component, React is the right choice since TanStack Table's React adapter is most mature and it lives in the markdown rendering pipeline (which uses `react-markdown`).
+
+---
+
+## 6. Risk Mitigation
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Unsigned binaries cause user friction | Medium | Clear first-run documentation, plan to add signing later |
+| React/Solid hybrid confuses contributors | Medium | Document which components use which, add contributing guide |
+| OpenCode SDK version breaks | Medium | Pin SDK version, test before upgrading |
+| WebKitGTK issues on Linux | Low (deprioritized) | Focus on macOS/Windows first, address Linux issues later |
+| Rich table perf with large datasets | Low | Virtual scrolling via TanStack, cap initial render to 100 rows |
